@@ -116,14 +116,15 @@ import static com.twiliorn.library.CustomTwilioVideoView.Events.ON_DOMINANT_SPEA
 public class CustomTwilioVideoView extends View implements LifecycleEventListener, AudioManager.OnAudioFocusChangeListener {
     private static final String TAG = "CustomTwilioVideoView";
     private static final String DATA_TRACK_MESSAGE_THREAD_NAME = "DataTrackMessages";
-
+    private boolean enableRemoteAudio = false;
     private static final VideoDimensions DEFAULT_MAX_CAPTURE_RESOLUTION = VideoDimensions.CIF_VIDEO_DIMENSIONS;
     private static final int DEFAULT_MAX_CAPTURE_FPS = 25;
 
     private boolean enableNetworkQualityReporting = false;
     private boolean isVideoEnabled = false;
     private boolean dominantSpeakerEnabled = false;
-    private boolean enableH264Codec = false;
+    private boolean maintainVideoTrackInBackground = false;
+private boolean enableH264Codec = false;
 
     private int audioBitrate = -1;
     private int videoBitrate = -1;
@@ -358,7 +359,7 @@ public class CustomTwilioVideoView extends View implements LifecycleEventListene
          * Release the local video track before going in the background. This ensures that the
          * camera can be used by other applications while this app is in the background.
          */
-        if (localVideoTrack != null) {
+        if (localVideoTrack != null && !maintainVideoTrackInBackground) {
             /*
              * If this local video track is being shared in a Room, remove from local
              * participant before releasing the video track. Participants will be notified that
@@ -415,14 +416,16 @@ public class CustomTwilioVideoView extends View implements LifecycleEventListene
 
     public void connectToRoomWrapper(
             String roomName, String accessToken, boolean enableAudio, boolean enableVideo,
-            ReadableMap encodingParameters, boolean enableNetworkQualityReporting, boolean dominantSpeakerEnabled,
-            ReadableMap bandwidthProfileOptions) {
+            boolean enableRemoteAudio, boolean enableNetworkQualityReporting, boolean dominantSpeakerEnabled, 
+            ReadableMap encodingParameters, ReadableMap bandwidthProfileOptions, boolean maintainVideoTrackInBackground) {
         this.roomName = roomName;
         this.accessToken = accessToken;
+		this.enableRemoteAudio = enableAudio;
         this.enableNetworkQualityReporting = enableNetworkQualityReporting;
         this.dominantSpeakerEnabled = dominantSpeakerEnabled;
+        this.maintainVideoTrackInBackground = maintainVideoTrackInBackground;
 
-        if (encodingParameters.hasKey("enableH264Codec")) {
+		if (encodingParameters.hasKey("enableH264Codec")) {
             this.enableH264Codec = encodingParameters.getBoolean("enableH264Codec");
         }
 
@@ -435,7 +438,6 @@ public class CustomTwilioVideoView extends View implements LifecycleEventListene
         }
 
         this.bandwidthProfile = prepareBandwidthProfile(bandwidthProfileOptions);
-
         // Share your microphone
         localAudioTrack = LocalAudioTrack.create(getContext(), enableAudio);
 
