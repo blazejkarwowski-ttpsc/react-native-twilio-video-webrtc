@@ -82,8 +82,11 @@ import com.twilio.video.Video;
 import com.twilio.video.VideoBandwidthProfileOptions;
 import com.twilio.video.VideoConstraints;
 import com.twilio.video.VideoDimensions;
+import com.twilio.video.VideoFormat;
 
 import org.webrtc.voiceengine.WebRtcAudioManager;
+
+import tvi.webrtc.Camera1Enumerator;
 
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
@@ -123,6 +126,8 @@ public class CustomTwilioVideoView extends View implements LifecycleEventListene
     private boolean enableNetworkQualityReporting = false;
     private boolean isVideoEnabled = false;
     private boolean dominantSpeakerEnabled = false;
+    private static String frontFacingDevice;
+    private static String backFacingDevice;
     private boolean maintainVideoTrackInBackground = false;
 private boolean enableH264Codec = false;
 
@@ -257,30 +262,35 @@ private boolean enableH264Codec = false;
 
     // ===== SETUP =================================================================================
 
-    private VideoConstraints buildVideoConstraints() {
+    private VideoFormat buildVideoFormat() {
         Log.d(TAG,"Setting camera constraints. Max Dimensions: "
             + this.maxCaptureDimensions + " - Max FPS: " + this.maxCaptureFPS);
 
         return new VideoConstraints.Builder()
+        		.minVideoDimensions(VideoDimensions.CIF_VIDEO_DIMENSIONS)
                 .maxVideoDimensions(this.maxCaptureDimensions)
+                .minFps(5)
                 .maxFps(this.maxCaptureFPS)
                 .build();
     }
 
-    private CameraCapturer createCameraCaputer(Context context, CameraCapturer.CameraSource cameraSource) {
+    private CameraCapturer createCameraCaputer(Context context, String cameraId) {
         CameraCapturer newCameraCapturer = null;
         try {
             newCameraCapturer = new CameraCapturer(
                     context,
-                    cameraSource,
+                    cameraId,
                     new CameraCapturer.Listener() {
                         @Override
                         public void onFirstFrameAvailable() {
                         }
 
                         @Override
-                        public void onCameraSwitched() {
+                        public void onCameraSwitched(String newCameraId) {
                             setThumbnailMirror();
+                            WritableMap event = new WritableNativeMap();
+                            event.putBoolean("isBackCamera", isCurrentCameraSourceBackFacing());
+                            pushEvent(CustomTwilioVideoView.this, ON_CAMERA_SWITCHED, event);
                         }
 
                         @Override
@@ -295,27 +305,40 @@ private boolean enableH264Codec = false;
         }
     }
 
-    private boolean createLocalVideo(boolean enableVideo) {
-      isVideoEnabled = enableVideo;
-        // Share your camera
-        cameraCapturer = this.createCameraCaputer(getContext(), CameraCapturer.CameraSource.FRONT_CAMERA);
-        if (cameraCapturer == null){
-            cameraCapturer = this.createCameraCaputer(getContext(), CameraCapturer.CameraSource.BACK_CAMERA);
+    private void buildDeviceInfo() {
+        Camera1Enumerator enumerator = new Camera1Enumerator();
+        String[] deviceNames = enumerator.getDeviceNames();
+        backFacingDevice = null;
+        frontFacingDevice = null;
+        for (String deviceName : deviceNames) {
+            if (enumerator.isBackFacing(deviceName) && enumerator.getSupportedFormats(deviceName).size() > 0) {
+                backFacingDevice = deviceName;
+            } else if (enumerator.isFrontFacing(deviceName) && enumerator.getSupportedFormats(deviceName).size() > 0) {
+                frontFacingDevice = deviceName;
+            }
         }
-        if (cameraCapturer == null){
+    }
+
+    private boolean createLocalVideo(boolean enableVideo) {
+        isVideoEnabled = enableVideo;
+        // Share your camera
+        buildDeviceInfo();
+        if (this.frontFacingDevice != null) {
+            cameraCapturer = this.createCameraCaputer(getContext(), frontFacingDevice);
+        } else if (this.backFacingDevice != null) {
+            cameraCapturer = this.createCameraCaputer(getContext(), backFacingDevice);
+        } else {
             WritableMap event = new WritableNativeMap();
             event.putString("error", "No camera is supported on this device");
             pushEvent(CustomTwilioVideoView.this, ON_CONNECT_FAILURE, event);
             return false;
         }
 
-        if (cameraCapturer.getSupportedFormats().size() > 0) {
-            localVideoTrack = LocalVideoTrack.create(getContext(), enableVideo, cameraCapturer, buildVideoConstraints());
-            if (thumbnailVideoView != null && localVideoTrack != null) {
-                localVideoTrack.addRenderer(thumbnailVideoView);
-            }
-            setThumbnailMirror();
+        localVideoTrack = LocalVideoTrack.create(getContext(), enableVideo, cameraCapturer, buildVideoFormat());
+        if (thumbnailVideoView != null && localVideoTrack != null) {
+            localVideoTrack.addSink(thumbnailVideoView);
         }
+        setThumbnailMirror();
         return true;
     }
 
@@ -332,12 +355,12 @@ private boolean enableH264Codec = false;
              * If the local video track was released when the app was put in the background, recreate.
              */
             if (cameraCapturer != null && localVideoTrack == null) {
-                localVideoTrack = LocalVideoTrack.create(getContext(), isVideoEnabled, cameraCapturer, buildVideoConstraints());
+                localVideoTrack = LocalVideoTrack.create(getContext(), isVideoEnabled, cameraCapturer, buildVideoFormat());
             }
 
             if (localVideoTrack != null) {
                 if (thumbnailVideoView != null) {
-                    localVideoTrack.addRenderer(thumbnailVideoView);
+                    localVideoTrack.addSink(thumbnailVideoView);
                 }
 
                 /*
@@ -772,9 +795,9 @@ private boolean enableH264Codec = false;
         }
     }
 
-    public void toggleVideo(boolean enabled, ReadableMap cameraSettings) {
-
-        if (cameraSettings != null) {
+    public void toggleVideo(boolean enabled,ReadableMap cameraSettings) {
+      isVideoEnabled = enabled;
+      if (cameraSettings != null) {
             if (cameraSettings.hasKey("maxDimensions")) {
                 this.maxCaptureDimensions = parseDimensionsString(cameraSettings.getString("maxDimensions"));
             }
@@ -800,7 +823,6 @@ private boolean enableH264Codec = false;
         }
         
         isVideoEnabled = enabled;
-
         if (localVideoTrack != null) {
             localVideoTrack.enable(enabled);
 
@@ -1392,9 +1414,9 @@ private boolean enableH264Codec = false;
                         continue;
                     }
                     if (publication.getTrackSid().equals(trackSid)) {
-                        track.addRenderer(v);
+                        track.addSink(v);
                     } else {
-                        track.removeRenderer(v);
+                        track.removeSink(v);
                     }
                 }
             }
@@ -1404,7 +1426,7 @@ private boolean enableH264Codec = false;
     public static void registerThumbnailVideoView(PatchedVideoView v) {
         thumbnailVideoView = v;
         if (localVideoTrack != null) {
-            localVideoTrack.addRenderer(v);
+            localVideoTrack.addSink(v);
         }
         setThumbnailMirror();
     }
