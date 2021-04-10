@@ -1188,14 +1188,14 @@ private boolean enableH264Codec = false;
 
             @Override
             public void onDataTrackSubscribed(RemoteParticipant remoteParticipant, RemoteDataTrackPublication remoteDataTrackPublication, RemoteDataTrack remoteDataTrack) {
-                 WritableMap event = buildParticipantDataEvent(remoteParticipant);
+                 WritableMap event = buildParticipantDataEvent(remoteParticipant, remoteDataTrackPublication);
                  pushEvent(CustomTwilioVideoView.this, ON_PARTICIPANT_ADDED_DATA_TRACK, event);
                  dataTrackMessageThreadHandler.post(() -> addRemoteDataTrack(remoteParticipant, remoteDataTrack));
             }
 
             @Override
-            public void onDataTrackUnsubscribed(RemoteParticipant remoteParticipant, RemoteDataTrackPublication publication, RemoteDataTrack remoteDataTrack) {
-                 WritableMap event = buildParticipantDataEvent(remoteParticipant);
+            public void onDataTrackUnsubscribed(RemoteParticipant remoteParticipant, RemoteDataTrackPublication remoteDataTrackPublication, RemoteDataTrack remoteDataTrack) {
+                 WritableMap event = buildParticipantDataEvent(remoteParticipant, remoteDataTrackPublication);
                  pushEvent(CustomTwilioVideoView.this, ON_PARTICIPANT_REMOVED_DATA_TRACK, event);
             }
 
@@ -1332,24 +1332,17 @@ private boolean enableH264Codec = false;
         return participantMap;
     }
 
-
-    private WritableMap buildParticipantDataEvent(Participant participant) {
-        WritableMap participantMap = buildParticipant(participant);
-        WritableMap participantMap2 = buildParticipant(participant);
-
-        WritableMap event = new WritableNativeMap();
-        event.putMap("participant", participantMap);
-        event.putMap("track", participantMap2);
-        return event;
-    }
-
-    private WritableMap buildParticipantVideoEvent(Participant participant, TrackPublication publication) {
-        WritableMap participantMap = buildParticipant(participant);
-
+    private WritableMap buildTrack(TrackPublication publication) {
         WritableMap trackMap = new WritableNativeMap();
         trackMap.putString("trackSid", publication.getTrackSid());
         trackMap.putString("trackName", publication.getTrackName());
         trackMap.putBoolean("enabled", publication.isTrackEnabled());
+        return trackMap;
+    }
+
+    private WritableMap buildParticipantDataEvent(Participant participant, TrackPublication publication) {
+        WritableMap participantMap = buildParticipant(participant);
+        WritableMap trackMap = buildTrack(publication);
 
         WritableMap event = new WritableNativeMap();
         event.putMap("participant", participantMap);
@@ -1357,9 +1350,20 @@ private boolean enableH264Codec = false;
         return event;
     }
 
-    private WritableMap buildDataTrackEvent(String message) {
+    private WritableMap buildParticipantVideoEvent(Participant participant, TrackPublication publication) {
+        WritableMap participantMap = buildParticipant(participant);
+        WritableMap trackMap = buildTrack(publication);
+
+        WritableMap event = new WritableNativeMap();
+        event.putMap("participant", participantMap);
+        event.putMap("track", trackMap);
+        return event;
+    }
+
+    private WritableMap buildDataTrackEvent(RemoteDataTrack remoteDataTrack, String message) {
         WritableMap event = new WritableNativeMap();
         event.putString("message", message);
+        event.putString("trackSid", remoteDataTrack.getSid());
         return event;
     }
 
@@ -1416,7 +1420,7 @@ private boolean enableH264Codec = false;
 
             @Override
             public void onMessage(RemoteDataTrack remoteDataTrack, String message) {
-                WritableMap event = buildDataTrackEvent(message);
+                WritableMap event = buildDataTrackEvent(remoteDataTrack, message);
                 pushEvent(CustomTwilioVideoView.this, ON_DATATRACK_MESSAGE_RECEIVED, event);
             }
         };
