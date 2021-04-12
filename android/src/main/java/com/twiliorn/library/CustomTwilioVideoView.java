@@ -1036,6 +1036,7 @@ private boolean enableH264Codec = false;
                 }
                 participantsArray.pushMap(buildParticipant(localParticipant));
                 event.putArray("participants", participantsArray);
+                event.putMap("localParticipant", buildParticipant(localParticipant));
 
                 pushEvent(CustomTwilioVideoView.this, ON_CONNECTED, event);
 
