@@ -8,6 +8,8 @@ declare module "react-native-twilio-video-webrtc" {
   }
 
   type scaleType = "fit" | "fill";
+  type cameraType = "front" | "back";
+
   interface TwilioVideoParticipantViewProps extends ViewProps {
     trackIdentifier: TrackIdentifier;
     ref?: React.Ref<any>;
@@ -128,7 +130,7 @@ declare module "react-native-twilio-video-webrtc" {
     renderDimensions?: RenderDimensions,
     trackSwitchOffMode?: TrackSwitchOffMode,
   }
-
+  
   type ConnectParams = {
     accessToken: string;
     roomName?: string;
@@ -145,9 +147,27 @@ declare module "react-native-twilio-video-webrtc" {
     bandwidthProfileOptions?: BandwidthProfileOptions;
   };
 
+  type iOSConnectParams = {
+    roomName?: string;
+    accessToken: string;
+    cameraType?: cameraType;
+    enableAudio?: boolean;
+    enableVideo?: boolean;
+    encodingParameters?: {
+      enableH264Codec?: boolean;
+      // if audioBitrate OR videoBitrate is provided, you must provide both
+      audioBitrate?: number;
+      videoBitrate?: number;
+    };
+    enableNetworkQualityReporting?: boolean;
+    dominantSpeakerEnabled?: boolean;
+    bandwidthProfileOptions?: BandwidthProfileOptions;
+  };
+
   type androidConnectParams = {
     roomName?: string;
     accessToken: string;
+    cameraType?: cameraType;
     enableAudio?: boolean;
     enableVideo?: boolean;
     enableRemoteAudio?: boolean;

@@ -168,6 +168,7 @@ class CustomTwilioVideoView extends Component {
   connect ({
     roomName,
     accessToken,
+    cameraType = "front",
     enableAudio = true,
     enableVideo = true,
     enableRemoteAudio = true,
@@ -201,8 +202,9 @@ class CustomTwilioVideoView extends Component {
       encodingParameters,
       enableNetworkQualityReporting,
       dominantSpeakerEnabled,
+      bandwidthProfileOptions,
       maintainVideoTrackInBackground,
-      bandwidthProfileOptions
+      cameraType
     ])
   }
 

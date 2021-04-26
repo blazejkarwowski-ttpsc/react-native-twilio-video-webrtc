@@ -244,8 +244,27 @@ export default class TwilioVideo extends Component {
    * @param  {Boolean} dominantSpeakerEnabled Report network quality of participants
    * @param  {object} bandwidthProfileOptions Report network quality of participants
    */
-  connect ({ roomName, accessToken, enableAudio = true, enableVideo = true, encodingParameters = null, enableNetworkQualityReporting = false, dominantSpeakerEnabled = false, bandwidthProfileOptions = null }) {
-    TWVideoModule.connect(accessToken, roomName, enableAudio, enableVideo, encodingParameters, enableNetworkQualityReporting, dominantSpeakerEnabled, bandwidthProfileOptions);
+  connect ({
+    roomName,
+    accessToken,
+    cameraType = "front",
+    enableAudio = true,
+    enableVideo = true,
+    encodingParameters = null,
+    enableNetworkQualityReporting = false,
+    dominantSpeakerEnabled = false,
+    bandwidthProfileOptions = null
+  }) {
+    TWVideoModule.connect(accessToken,
+      roomName,
+      enableAudio,
+      enableVideo,
+      encodingParameters,
+      enableNetworkQualityReporting,
+      dominantSpeakerEnabled,
+      bandwidthProfileOptions,
+      cameraType,
+    )
   }
 
   /**
