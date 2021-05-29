@@ -119,6 +119,8 @@ import static com.twiliorn.library.CustomTwilioVideoView.Events.ON_DOMINANT_SPEA
 public class CustomTwilioVideoView extends View implements LifecycleEventListener, AudioManager.OnAudioFocusChangeListener {
     private static final String TAG = "CustomTwilioVideoView";
     private static final String DATA_TRACK_MESSAGE_THREAD_NAME = "DataTrackMessages";
+    private static final String FRONT_CAMERA_TYPE = "front";
+    private static final String BACK_CAMERA_TYPE = "back";
     private boolean enableRemoteAudio = false;
     private static final VideoDimensions DEFAULT_MAX_CAPTURE_RESOLUTION = VideoDimensions.CIF_VIDEO_DIMENSIONS;
     private static final int DEFAULT_MAX_CAPTURE_FPS = 25;
@@ -129,7 +131,9 @@ public class CustomTwilioVideoView extends View implements LifecycleEventListene
     private static String frontFacingDevice;
     private static String backFacingDevice;
     private boolean maintainVideoTrackInBackground = false;
-private boolean enableH264Codec = false;
+    private String cameraType = "";
+    
+    private boolean enableH264Codec = false;
 
     private int audioBitrate = -1;
     private int videoBitrate = -1;
@@ -138,6 +142,7 @@ private boolean enableH264Codec = false;
 
     private VideoDimensions maxCaptureDimensions = CustomTwilioVideoView.DEFAULT_MAX_CAPTURE_RESOLUTION;
     private int maxCaptureFPS  = CustomTwilioVideoView.DEFAULT_MAX_CAPTURE_FPS;
+
 
     @Retention(RetentionPolicy.SOURCE)
     @StringDef({Events.ON_CAMERA_SWITCHED,
@@ -325,7 +330,7 @@ private boolean enableH264Codec = false;
         // Share your camera
         buildDeviceInfo();
 
-        if (cameraType.equals("front")) {
+        if (cameraType.equals(CustomTwilioVideoView.FRONT_CAMERA_TYPE)) {
             if (frontFacingDevice != null) {
                 cameraCapturer = this.createCameraCaputer(getContext(), frontFacingDevice);
             } else {
@@ -464,6 +469,7 @@ private boolean enableH264Codec = false;
         this.enableNetworkQualityReporting = enableNetworkQualityReporting;
         this.dominantSpeakerEnabled = dominantSpeakerEnabled;
         this.maintainVideoTrackInBackground = maintainVideoTrackInBackground;
+        this.cameraType = cameraType;
 
 		if (encodingParameters.hasKey("enableH264Codec")) {
             this.enableH264Codec = encodingParameters.getBoolean("enableH264Codec");
@@ -481,18 +487,22 @@ private boolean enableH264Codec = false;
         // Share your microphone
         localAudioTrack = LocalAudioTrack.create(getContext(), enableAudio);
 
-        if (cameraCapturer == null) {
+        if (cameraCapturer == null && enableVideo) {
             boolean createVideoStatus = createLocalVideo(enableVideo, cameraType);
             if (!createVideoStatus) {
+                Log.d("RNTwilioVideo", "Failed to create local video");
                 // No need to connect to room if video creation failed
                 return;
-			}
+        }
+        } else {
+            isVideoEnabled = false;
         }
 
-        connectToRoom(enableAudio);
+        setAudioFocus(enableAudio);
+        connectToRoom();
     }
-
-    // Functions to parse the bandwidth profile map
+    
+        // Functions to parse the bandwidth profile map
     private TrackPriority parsePriorityString(@Nullable String priority) {
         if (priority != null && !priority.trim().isEmpty()) {
             if (priority.toUpperCase().equals("LOW")) {
@@ -639,11 +649,10 @@ private boolean enableH264Codec = false;
         return new BandwidthProfileOptions(videoBandwidthProfileOptions);
     }
 
-    public void connectToRoom(boolean enableAudio) {
+    public void connectToRoom() {
         /*
          * Create a VideoClient allowing you to connect to a Room
          */
-        setAudioFocus(enableAudio);
         ConnectOptions.Builder connectOptionsBuilder = new ConnectOptions.Builder(this.accessToken);
 
         if (this.roomName != null) {
@@ -803,18 +812,21 @@ private boolean enableH264Codec = false;
 
     public void switchCamera() {
         if (cameraCapturer != null) {
-            cameraCapturer.switchCamera();
-            CameraCapturer.CameraSource cameraSource = cameraCapturer.getCameraSource();
-            final boolean isBackCamera = cameraSource == CameraCapturer.CameraSource.BACK_CAMERA;
-            WritableMap event = new WritableNativeMap();
-            event.putBoolean("isBackCamera", isBackCamera);
-            pushEvent(CustomTwilioVideoView.this, ON_CAMERA_SWITCHED, event);
+            final boolean isBackCamera = isCurrentCameraSourceBackFacing();
+            if (frontFacingDevice != null && (isBackCamera || backFacingDevice == null)) {
+                cameraCapturer.switchCamera(frontFacingDevice);
+                cameraType = CustomTwilioVideoView.FRONT_CAMERA_TYPE;
+            } else {
+                cameraCapturer.switchCamera(backFacingDevice);
+                cameraType = CustomTwilioVideoView.BACK_CAMERA_TYPE;
+            }
         }
     }
 
     public void toggleVideo(boolean enabled,ReadableMap cameraSettings) {
       isVideoEnabled = enabled;
-      if (cameraSettings != null) {
+      
+	  if (cameraSettings != null) {
             if (cameraSettings.hasKey("maxDimensions")) {
                 this.maxCaptureDimensions = parseDimensionsString(cameraSettings.getString("maxDimensions"));
             }
@@ -831,15 +843,24 @@ private boolean enableH264Codec = false;
         if (this.maxCaptureFPS < 1) {
             this.maxCaptureFPS = CustomTwilioVideoView.DEFAULT_MAX_CAPTURE_FPS;;
         }
-
+         
+        
+        if (cameraCapturer == null && enabled) {
+            String fallbackCameraType = cameraType == null ? CustomTwilioVideoView.FRONT_CAMERA_TYPE : cameraType;
+            boolean createVideoStatus = createLocalVideo(true, fallbackCameraType);
+            if (!createVideoStatus) {
+                Log.d("RNTwilioVideo", "Failed to create local video");
+                return;
+            }
+        }
+        
         if (enabled && localVideoTrack == null) {
-            createLocalVideo(enabled);
             if (localParticipant != null) {
                 localParticipant.publishTrack(localVideoTrack);
             }
         }
         
-        isVideoEnabled = enabled;
+
         if (localVideoTrack != null) {
             localVideoTrack.enable(enabled);
 
