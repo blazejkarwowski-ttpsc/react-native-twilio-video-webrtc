@@ -78,10 +78,17 @@ declare module "react-native-twilio-video-webrtc" {
   
   export type NetworkLevelChangeEventCb = (p: NetworkLevelChangeEventArgs) => void;
 
+  export type DominantSpeakerChangedEventArgs = RoomEventCommonArgs & {
+    participant: Participant;
+  }
+  
+  export type DominantSpeakerChangedCb = (d: DominantSpeakerChangedEventArgs) => void;
+
   export type TwilioVideoProps = ViewProps & {
     onCameraDidStart?: () => void;
     onCameraDidStopRunning?: (err: any) => void;
     onCameraWasInterrupted?: () => void;
+    onDominantSpeakerDidChange?: DominantSpeakerChangedCb;
     onParticipantAddedAudioTrack?: TrackEventCb;
     onParticipantAddedVideoTrack?: TrackEventCb;
     onParticipantDisabledVideoTrack?: TrackEventCb;
@@ -151,6 +158,7 @@ declare module "react-native-twilio-video-webrtc" {
     roomName?: string;
     accessToken: string;
     cameraType?: cameraType;
+    dominantSpeakerEnabled?: boolean;
     enableAudio?: boolean;
     enableVideo?: boolean;
     encodingParameters?: {
@@ -168,6 +176,7 @@ declare module "react-native-twilio-video-webrtc" {
     roomName?: string;
     accessToken: string;
     cameraType?: cameraType;
+    dominantSpeakerEnabled?: boolean;
     enableAudio?: boolean;
     enableVideo?: boolean;
     enableRemoteAudio?: boolean;
