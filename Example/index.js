@@ -35,7 +35,7 @@ const Example = (props) => {
       await _requestAudioPermission();
       await _requestCameraPermission();
     }
-<<<<<<< HEAD
+    
     twilioVideo.current.connect({ roomName: "test_room", accessToken: token, 
         enableAudio: true,
         enableVideo: true,
@@ -57,10 +57,7 @@ const Example = (props) => {
       maxFPS: 25
     })
 
-=======
-    twilioVideo.current.connect({ accessToken: token, enableNetworkQualityReporting: true, dominantSpeakerEnabled: true});
->>>>>>> 3076a7b (Add dominant speaker to the TypeScript definition (#513))
-    setStatus("connecting");
+	setStatus("connecting");
   };
 
   const _onEndButtonPress = () => {
